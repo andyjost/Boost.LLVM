@@ -8,7 +8,6 @@
 #include <iosfwd>
 #include <tuple>
 #include <type_traits>
-#include <vector>
 
 namespace llvm
 {
