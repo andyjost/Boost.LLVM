@@ -1,6 +1,3 @@
-// TODO:
-//   loading headers and libraries (how???)
-
 #include <boost/operators.hpp>
 #include <cstddef>
 #include "details.hpp"

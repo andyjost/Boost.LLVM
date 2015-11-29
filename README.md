@@ -1,2 +1,2 @@
 # Boost.LLVM
-An EDSL for creating programs at runtime.
+An EDSL for creating programs at runtime using LLVM.
