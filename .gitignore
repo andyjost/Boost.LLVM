@@ -1,3 +1,7 @@
+# Misc.
+*make.sh
+boost
+
 # Compiled Object files
 *.slo
 *.lo
