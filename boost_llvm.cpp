@@ -3,10 +3,11 @@
 
 #include <boost/operators.hpp>
 #include <cstddef>
-#include <functional>
 #include "details.hpp"
-#include <type_traits>
+#include <functional>
+#include <iosfwd>
 #include <tuple>
+#include <type_traits>
 #include <vector>
 
 namespace llvm
@@ -150,7 +151,7 @@ namespace boost { namespace llvm
     template<typename T> value(BOOST_LLVM_INIT_LIST_9D(T));
 
     // Accessors.
-    value operator[](size_t) const;
+    value operator[](value) const;
     ref operator*() const;
     value dot(size_t) const;
     value dot(string_ref) const;
@@ -196,6 +197,8 @@ namespace boost { namespace llvm
   // References.
   // ================================================================================
   // note: most operators are acquired via conversion to value.
+  struct initializer { explicit initializer(value); };
+
   class const_ref
   {
     const_ref() {}
@@ -207,16 +210,19 @@ namespace boost { namespace llvm
     // Load.
     explicit operator value() const; // emits a load instruction.
 
-    // Address.
+    // Address of.
     value operator&() const;
 
     // Accessors.
-    const_ref operator[](size_t) const;
+    const_ref operator[](value) const;
     const_ref operator*() const;
     const_ref dot(size_t) const;
     const_ref dot(string_ref) const;
     const_ref arrow(size_t) const;
     const_ref arrow(string_ref) const;
+
+    // Initialize.
+    const_ref & operator=(initializer) const;
   };
 
   class ref : boost::incrementable<ref, const_ref>
@@ -228,7 +234,7 @@ namespace boost { namespace llvm
     ref & operator=(value) const; // emits a store instruction.
 
     // Accessors.
-    ref operator[](size_t) const;
+    ref operator[](value) const;
     ref operator*() const;
     ref dot(size_t) const;
     ref dot(string_ref) const;
@@ -248,19 +254,25 @@ namespace boost { namespace llvm
     ref & operator>>=(value) const;
     ref & operator++() const;
     ref & operator--() const;
+
+    // Initialize.
+    ref & operator=(initializer) const;
   };
 
 
   // ================================================================================
   // Intrinsics.
+  //
+  // The values are computed as constexprs during code generation.  Hence, the
+  // return value must be value, not size_t.
   // ================================================================================
   type typeof_(value);
-  size_t sizeof_(type);
-  size_t sizeof_(value);
-  size_t alignof_(type);
-  size_t alignof_(value);
-  size_t offsetof_(type, size_t);
-  size_t offsetof_(type, string_ref);
+  value sizeof_(type);
+  value sizeof_(value);
+  value alignof_(type);
+  value alignof_(value);
+  value offsetof_(type, size_t);
+  value offsetof_(type, string_ref);
 
 
   // ================================================================================
@@ -282,9 +294,10 @@ namespace boost { namespace llvm
     module(::llvm::Module *);
 
     // I/O
-    static module && load(std::string const & filename);
-    static module && load(std::istream & file);
-    void save(std::string const & filename, bool binary=true);
+    static module && read(std::string const & filename);
+    static module && read(std::istream & stream);
+    void write(std::string const & filename, bool binary=true);
+    void write(std::ostream & stream, bool binary=true);
 
     // Build.
     module & link(module &);
@@ -299,6 +312,8 @@ namespace boost { namespace llvm
 
   // ================================================================================
   // Labels.
+  //
+  // The target of a branch instruction.
   // ================================================================================
   class label
   {
@@ -323,13 +338,7 @@ namespace boost { namespace llvm
     static module const * current_module();
     static value const * current_function();
     static label const * current_label();
-
-    // Get the list of variable and function parameter names currenly in scope.
-    static std::vector<std::string> const & vars();
   };
-
-  // Return the named variable or function paramter.
-  ref var(string_ref);
 
 
   // ================================================================================
@@ -380,9 +389,14 @@ namespace boost { namespace llvm
     friend symbol_name flexible(string_ref);
   };
 
-  ref extern_(symbol_name, type, string_refs, code=code());
-  ref static_(symbol_name, type, string_refs, code=code());
-  ref inline_(symbol_name, type, string_refs, code=code());
+  // Create functions.
+  ref extern_(type, symbol_name, string_refs, code=code());
+  ref static_(type, symbol_name, string_refs, code=code());
+  ref inline_(type, symbol_name, string_refs, code=code());
+
+  // Create global variables.
+  ref extern_(type, symbol_name);
+  ref static_(type, symbol_name);
 
 
   // ================================================================================
@@ -401,8 +415,11 @@ namespace boost { namespace llvm
   // ================================================================================
   // Reflection.
   // ================================================================================
-  // Sequential type access.
+  struct string_iterator { /* unspecified */ };
   struct type_iterator { /* unspecified */ };
+  struct value_iterator { /* unspecified */ };
+
+  // Sequential type access.
   struct member_types
   {
     member_types(type);
@@ -413,7 +430,6 @@ namespace boost { namespace llvm
   };
 
   // Aggregate member access.
-  struct string_iterator { /* unspecified */ };
   struct member_names
   {
     member_names(type);
@@ -423,11 +439,7 @@ namespace boost { namespace llvm
     std::string const & operator[](size_t) const;
   };
 
-  // Return T from T* or T[].
-  type element_type(type);
-
   // Function.
-  type return_type(type);
   struct parameter_types
   {
     parameter_types(type);
@@ -446,10 +458,26 @@ namespace boost { namespace llvm
     std::string const & operator[](size_t) const;
   };
 
+  // Symbol table.
+  struct local_names
+  {
+    local_names();
+    string_iterator begin() const;
+    string_iterator end() const;
+    size_t size() const;
+    std::string const & operator[](size_t) const;
+  };
+  // Lookup the named local variable or function parameter.
+  ref var(string_ref);
+
 
   // ================================================================================
   // Type traits.
   // ================================================================================
+  // Non-standard.
+  type element_type(type); // return T from T* or T[].
+  type return_type(type); // return T from T(Us...).
+
   // Primary type categories.
   bool is_array(type);
   bool is_class(type);

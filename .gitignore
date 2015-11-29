@@ -1,6 +1,7 @@
 # Misc.
 *make.sh
 boost
+test
 
 # Compiled Object files
 *.slo
